@@ -161,6 +161,7 @@ const typeDefs = gql`
       doctorId: String!
       exception: ScheduleExceptionInput!
     ): DoctorSchedule!
+    deleteDoctorSchedule(doctorId: String!): DoctorSchedule!
 
     # Citas
     createAppointment(input: AppointmentInput!): Appointment!

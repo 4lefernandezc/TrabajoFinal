@@ -25,6 +25,7 @@ function onLogin(newToken) {
 function logout() {
   token.value = null
   localStorage.removeItem('token')
+  localStorage.removeItem('userId')
   localStorage.removeItem('role')
   localStorage.removeItem('email')
   router.push('/login')
@@ -47,6 +48,7 @@ function logout() {
   display: flex;
   flex-direction: column;
 }
+
 .main-content {
   flex: 1;
 }

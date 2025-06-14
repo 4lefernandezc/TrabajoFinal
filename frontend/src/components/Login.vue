@@ -29,6 +29,7 @@ async function handleLogin() {
     localStorage.setItem('token', data.token)
     emit('login', data.token)
     // dentro del token esta informacion como el rol del usuario lo guardamos en localStorage
+    localStorage.setItem('userId', data.user.id)
     localStorage.setItem('role', data.user.role)
     localStorage.setItem('email', data.user.email)
   } else {

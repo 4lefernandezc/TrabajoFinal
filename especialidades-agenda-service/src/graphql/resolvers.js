@@ -120,7 +120,7 @@ const resolvers = {
         throw new Error("No autorizado: se requiere rol de administrador");
       }
 
-      const specialty = new Specialty(input); 
+      const specialty = new Specialty(input);
       return await specialty.save();
     },
 
@@ -146,21 +146,31 @@ const resolvers = {
 
     // Agendas médicas
     createDoctorSchedule: async (_, { input }, { user }) => {
-      if (!user || (user.role !== "medico" && user.role !== "admin")) {
-        throw new Error(
-          "No autorizado: se requiere rol de médico o administrador"
-        );
+      if (!user) {
+        throw new Error("No autorizado");
       }
 
-      // Verificar que el doctor sea el mismo usuario o sea admin
-      if (user.role === "medico" && user.id !== input.doctorId) {
-        throw new Error("No autorizado: solo puedes crear tu propia agenda");
+      // Verificar si ya existe un horario para este doctor
+      const existingSchedule = await DoctorSchedule.findOne({
+        doctorId: input.doctorId,
+        isActive: true,
+      });
+
+      if (existingSchedule) {
+        throw new Error("Ya existe un horario activo para este doctor");
       }
 
       const scheduleData = {
         doctorId: input.doctorId,
         specialties: input.specialtyIds.map((id) => ({ specialtyId: id })),
-        weeklySchedule: input.weeklySchedule,
+        weeklySchedule: input.weeklySchedule.map((day) => ({
+          ...day,
+          timeSlots: day.timeSlots.map((slot) => ({
+            ...slot,
+            isAvailable:
+              slot.isAvailable !== undefined ? slot.isAvailable : true,
+          })),
+        })),
         exceptions: [],
       };
 
@@ -173,33 +183,57 @@ const resolvers = {
     },
 
     updateDoctorSchedule: async (_, { doctorId, input }, { user }) => {
-      if (!user || (user.role !== "medico" && user.role !== "admin")) {
-        throw new Error(
-          "No autorizado: se requiere rol de médico o administrador"
-        );
+      if (!user) {
+        throw new Error("No autorizado: se requiere autenticación");
       }
 
-      if (user.role === "medico" && user.id !== doctorId) {
-        throw new Error(
-          "No autorizado: solo puedes actualizar tu propia agenda"
-        );
+      // Construir el objeto de actualización solo con los campos presentes en input
+      const updateData = {};
+      if (input.specialtyIds) {
+        updateData.specialties = input.specialtyIds.map((id) => ({
+          specialtyId: id,
+        }));
+      }
+      if (input.weeklySchedule) {
+        updateData.weeklySchedule = input.weeklySchedule.map((day) => ({
+          ...day,
+          timeSlots: day.timeSlots.map((slot) => ({
+            ...slot,
+            isAvailable:
+              slot.isAvailable !== undefined ? slot.isAvailable : true,
+          })),
+        }));
       }
 
-      const updateData = {
-        specialties: input.specialtyIds.map((id) => ({ specialtyId: id })),
-        weeklySchedule: input.weeklySchedule,
-      };
+      // Actualizar el documento y devolver el resultado actualizado con populate
+      const updated = await DoctorSchedule.findOneAndUpdate(
+        { doctorId },
+        { $set: updateData },
+        { new: true }
+      ).populate("specialties.specialtyId");
 
-      return await DoctorSchedule.findOneAndUpdate({ doctorId }, updateData, {
-        new: true,
-      }).populate("specialties.specialtyId");
+      if (!updated) {
+        throw new Error("Horario no encontrado");
+      }
+
+      return updated;
+    },
+
+    deleteDoctorSchedule: async (_, { doctorId }, { user }) => {
+      if (!user) {
+        throw new Error("No autorizado: se requiere autenticación");
+      }
+
+      const deleted = await DoctorSchedule.findOneAndDelete({ doctorId });
+      if (!deleted) {
+        throw new Error("Horario no encontrado");
+      }
+      return deleted;
     },
 
     addScheduleException: async (_, { doctorId, exception }, { user }) => {
-      if (!user || (user.role !== "medico" && user.role !== "admin")) {
-        throw new Error(
-          "No autorizado: se requiere rol de médico o administrador"
-        );
+      if (!user) {
+        throw new Error("No autorizado: se requiere autenticación");
       }
 
       if (user.role === "medico" && user.id !== doctorId) {
@@ -397,4 +431,5 @@ async function checkTimeSlotAvailability(doctorId, appointmentDate, startTime) {
 
   return !existingAppointment;
 }
+
 module.exports = resolvers;

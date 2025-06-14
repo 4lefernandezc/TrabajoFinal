@@ -1,15 +1,17 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 
 const doctores = ref([])
+const especialidades = ref([])
+const filtroEspecialidad = ref('')
 const error = ref('')
 const loading = ref(true)
 const token = localStorage.getItem('token')
+const rol = localStorage.getItem('role')
 
 // Formulario de registro
 const email = ref('')
 const password = ref('')
-const especialidad = ref('')
 const regLoading = ref(false)
 const regError = ref('')
 const regSuccess = ref('')
@@ -17,6 +19,45 @@ const regSuccess = ref('')
 // Modal
 const showModal = ref(false)
 
+// Traer especialidades
+async function fetchEspecialidades() {
+  try {
+    const res = await fetch('http://localhost/agenda/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `query { specialties { id name } }` })
+    })
+    const data = await res.json()
+    console.log('Especialidades recibidas:', data)
+    especialidades.value = data.data.specialties
+  } catch (err) {
+    console.log('Error al obtener especialidades:', err)
+    // No es crítico
+  }
+}
+
+// Traer agendas de doctores (con especialidades)
+async function fetchDoctorSchedules() {
+  const res = await fetch('http://localhost/agenda/graphql', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      query: `
+        query {
+          doctorSchedules {
+            doctorId
+            specialties { id name }
+          }
+        }
+      `
+    })
+  })
+  const data = await res.json()
+  console.log('Doctor schedules recibidos:', data)
+  return data.data.doctorSchedules
+}
+
+// Traer usuarios doctores
 async function fetchDoctores() {
   try {
     const res = await fetch('http://localhost/doctores', {
@@ -29,11 +70,31 @@ async function fetchDoctores() {
       throw new Error('Error al obtener los doctores')
     }
     const data = await res.json()
-    doctores.value = data.medicos || []
-    console.log('Doctores obtenidos:', doctores.value)
+    // Traer agendas y agrupar especialidades por doctorId
+    const doctorSchedules = await fetchDoctorSchedules()
+    // Agrupar especialidades por doctorId
+    const especialidadesPorDoctor = {}
+    doctorSchedules.forEach(sch => {
+      if (!especialidadesPorDoctor[sch.doctorId]) {
+        especialidadesPorDoctor[sch.doctorId] = []
+      }
+      sch.specialties.forEach(esp => {
+        // Evitar duplicados
+        if (!especialidadesPorDoctor[sch.doctorId].some(e => e.id === esp.id)) {
+          especialidadesPorDoctor[sch.doctorId].push(esp)
+        }
+      })
+    })
+    // Combinar con los datos de usuario
+    doctores.value = (data.medicos || []).map(doc => {
+      return {
+        ...doc,
+        especialidades: especialidadesPorDoctor[doc.id] || []
+      }
+    })
+    loading.value = false
   } catch (err) {
     error.value = 'Error al obtener los doctores'
-  } finally {
     loading.value = false
   }
 }
@@ -51,8 +112,7 @@ async function registrarDoctor() {
       body: JSON.stringify({
         email: email.value,
         password: password.value,
-        role: 'Medico',
-        especialidad: especialidad.value
+        role: 'Medico'
       })
     })
     const data = await res.json()
@@ -62,7 +122,6 @@ async function registrarDoctor() {
     regSuccess.value = 'Doctor registrado exitosamente'
     email.value = ''
     password.value = ''
-    especialidad.value = ''
     fetchDoctores()
     showModal.value = false
   } catch (err) {
@@ -77,7 +136,6 @@ function openModal() {
   regSuccess.value = ''
   email.value = ''
   password.value = ''
-  especialidad.value = ''
   showModal.value = true
 }
 
@@ -85,8 +143,16 @@ function closeModal() {
   showModal.value = false
 }
 
-onMounted(() => {
-  fetchDoctores()
+const doctoresFiltrados = computed(() => {
+  if (!filtroEspecialidad.value) return doctores.value
+  return doctores.value.filter(doc =>
+    doc.especialidades.some(esp => esp.id === filtroEspecialidad.value)
+  )
+})
+
+onMounted(async () => {
+  await fetchEspecialidades()
+  await fetchDoctores()
 })
 </script>
 
@@ -100,20 +166,25 @@ onMounted(() => {
         No hay doctores registrados.
       </div>
       <div v-else class="cards-container">
-        <div v-for="doctor in doctores" :key="doctor.id" class="paciente-card">
+        <div v-for="doctor in doctoresFiltrados" :key="doctor.id" class="paciente-card">
           <div class="paciente-avatar">
-            <span>{{ doctor.nombre ?doctor.nombre.charAt(0).toUpperCase() : doctor.email.charAt(0).toUpperCase()
-              }}</span>
+            <span>{{ doctor.nombre ? doctor.nombre.charAt(0).toUpperCase() : doctor.email.charAt(0).toUpperCase()
+            }}</span>
           </div>
           <div class="paciente-info">
             <div class="paciente-id">ID: {{ doctor.id }}</div>
             <div class="paciente-email">{{ doctor.email }}</div>
-            <div class="paciente-especialidad">Especialidad: {{ doctor.especialidad }}</div>
+            <div class="paciente-especialidad">
+              Especialidades:
+              <ul>
+                <li v-for="esp in doctor.especialidades" :key="esp.id">{{ esp.name }}</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
     </template>
-    <button @click="openModal" style="margin-top:2em;">Registrar Doctor</button>
+    <button v-if="rol === 'admin'" @click="openModal" style="margin-top:2em;">Registrar Doctor</button>
   </div>
   <!-- Modal -->
   <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
@@ -129,10 +200,6 @@ onMounted(() => {
           <label>Contraseña:</label>
           <input v-model="password" type="password" required />
         </div>
-        <div>
-          <label>Especialidad:</label>
-          <input v-model="especialidad" type="text" required />
-        </div>
         <button type="submit" :disabled="regLoading">Registrar</button>
       </form>
       <div v-if="regLoading">Registrando...</div>
@@ -146,105 +213,129 @@ onMounted(() => {
 .cards-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5em;
+  gap: 2em;
   margin-top: 2em;
+  justify-content: flex-start;
 }
 
 .paciente-card {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  padding: 1.5em 1.2em;
-  min-width: 220px;
-  max-width: 260px;
+  background: linear-gradient(135deg, #f8fafc 60%, #e3f0ff 100%);
+  border-radius: 18px;
+  box-shadow: 0 4px 24px rgba(0, 123, 255, 0.10), 0 1.5px 8px rgba(0, 0, 0, 0.04);
+  padding: 1.7em 1.5em 1.3em 1.5em;
+  min-width: 250px;
+  max-width: 300px;
   display: flex;
-  align-items: center;
-  transition: box-shadow 0.2s;
-  border: 1px solid #f0f0f0;
+  align-items: flex-start;
+  transition: box-shadow 0.2s, transform 0.15s;
+  border: 1.5px solid #e3eafc;
+  position: relative;
 }
 
 .paciente-card:hover {
-  box-shadow: 0 4px 20px rgba(0, 123, 255, 0.15);
-  border-color: #007bff33;
+  box-shadow: 0 8px 32px rgba(0, 123, 255, 0.18), 0 2px 12px rgba(0, 0, 0, 0.06);
+  border-color: #007bff55;
+  transform: translateY(-4px) scale(1.025);
 }
 
 .paciente-avatar {
-  width: 48px;
-  height: 48px;
-  background: #007bff22;
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #007bff33 60%, #6ec1e4 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.7em;
+  font-size: 2.1em;
   color: #007bff;
   font-weight: bold;
-  margin-right: 1em;
+  margin-right: 1.2em;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px #007bff22;
 }
 
 .paciente-info {
   display: flex;
   flex-direction: column;
-  gap: 0.3em;
+  gap: 0.4em;
+  flex: 1;
 }
 
 .paciente-id {
-  font-size: 0.95em;
-  color: #888;
+  font-size: 0.98em;
+  color: #7a7a7a;
+  margin-bottom: 0.1em;
 }
 
 .paciente-email {
-  font-size: 1.1em;
+  font-size: 1.13em;
   color: #222;
-  font-weight: 500;
+  font-weight: 600;
+  margin-bottom: 0.2em;
+  word-break: break-all;
 }
 
 .paciente-especialidad {
   font-size: 1em;
-  color: #555;
+  color: #444;
+  margin-top: 0.5em;
 }
 
-/* ...resto de estilos igual... */
-ul {
-  list-style-type: none;
+.paciente-especialidad ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  margin: 0.3em 0 0 0;
   padding: 0;
+  list-style: none;
 }
 
-li {
-  padding: 0.5em;
-  border-bottom: 1px solid #ccc;
+.paciente-especialidad li {
+  background: linear-gradient(90deg, #007bff 60%, #6ec1e4 100%);
+  color: #fff;
+  border-radius: 16px;
+  padding: 0.35em 1em;
+  font-size: 0.97em;
+  font-weight: 500;
+  margin: 0;
+  border: none;
+  transition: background 0.2s;
+  box-shadow: 0 1px 4px #007bff22;
+  letter-spacing: 0.01em;
 }
 
-li:last-child {
-  border-bottom: none;
-  color: white;
-  text-decoration: none;
-}
-
-li:hover {
-  background-color: #f0f0f0;
+.paciente-especialidad li:hover {
+  background: linear-gradient(90deg, #0056b3 60%, #007bff 100%);
+  color: #fff;
 }
 
 h1 {
-  color: #333;
+  color: #2a2a2a;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin-bottom: 0.5em;
 }
 
 button {
   margin: 0.5em;
-  padding: 0.5em 1em;
-  background-color: #007bff;
+  padding: 0.6em 1.2em;
+  background: linear-gradient(90deg, #007bff 70%, #6ec1e4 100%);
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   cursor: pointer;
+  font-weight: 600;
+  font-size: 1em;
+  box-shadow: 0 2px 8px #007bff22;
+  transition: background 0.2s, box-shadow 0.2s;
 }
 
 button:disabled {
-  background-color: #aaa;
+  background: #aaa;
+  box-shadow: none;
 }
 
-/* Modal styles */
+/* Modal styles (igual que antes) */
 .modal-overlay {
   position: fixed;
   top: 0;

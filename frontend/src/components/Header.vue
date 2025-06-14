@@ -38,7 +38,7 @@ const pestañasVisibles = computed(() => {
 
       case 'Pacientes':
         // Admin y Medico pueden ver Pacientes
-        return rolActual === 'admin' || rolActual === 'Medico'
+        return rolActual === 'admin'
 
       case 'Inicio':
         // Todos pueden ver Inicio
