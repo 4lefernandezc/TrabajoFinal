@@ -54,7 +54,8 @@ const getMedicos = async () => {
   } finally {
     if (connection.release) connection.release();
   }
-}
+};
+
 const getPacientes = async () => {
   const connection = db.getConnection ? await db.getConnection() : db;
   try {
@@ -65,7 +66,8 @@ const getPacientes = async () => {
   } finally {
     if (connection.release) connection.release();
   }
-}
+};
+
 const getAdministradores = async () => {
   const connection = db.getConnection ? await db.getConnection() : db;
   try {
@@ -76,7 +78,7 @@ const getAdministradores = async () => {
   } finally {
     if (connection.release) connection.release();
   }
-}
+};
 
 module.exports = {
   createUser,
@@ -84,5 +86,5 @@ module.exports = {
   getUserById,
   getMedicos,
   getPacientes,
-  getAdministradores
+  getAdministradores,
 };

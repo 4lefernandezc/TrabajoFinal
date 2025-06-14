@@ -26,11 +26,11 @@ async function handleLogin() {
   if (data.token) {
     console.log(data.token)
     console.log('Token recibido:', data.token)
-  localStorage.setItem('token', data.token)
-  emit('login', data.token)
-  // dentro del token esta informacion como el rol del usuario lo guardamos en localStorage
-  localStorage.setItem('role', data.user.role)
-  localStorage.setItem('email', data.user.email)
+    localStorage.setItem('token', data.token)
+    emit('login', data.token)
+    // dentro del token esta informacion como el rol del usuario lo guardamos en localStorage
+    localStorage.setItem('role', data.user.role)
+    localStorage.setItem('email', data.user.email)
   } else {
     localStorage.removeItem('token')
     localStorage.removeItem('role')
@@ -39,8 +39,8 @@ async function handleLogin() {
   if (data.token) {
 
 
-  window.location.href = '/' // Redirige al home
-}
+    window.location.href = '/' // Redirige al home
+  }
 }
 </script>
 
@@ -60,43 +60,88 @@ async function handleLogin() {
 
 <style scoped>
 form {
-  max-width: 300px;
+  max-width: 450px;
   margin: 100px auto;
-  padding: 20px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
+  padding: 32px 28px 24px 28px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.10), 0 1.5px 4px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
-input {
-  width: 92%;
-  padding: 10px;
-  margin: 10px 0;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-}
-button {
-  width: 100%;
-  padding: 10px;
-  background-color: #28a745;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-button:hover {
-  background-color: #218838;
-}
-div {
-  margin-top: 10px;
-}
-div strong {
-  display: block;
-  margin-bottom: 5px;
-}
-div {
-  word-break: break-all;
-}
+
 h2 {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+  font-size: 2rem;
+  color: #222;
+  letter-spacing: 1px;
+  font-weight: 700;
+}
+
+input {
+  width: 90%;
+  padding: 12px 14px;
+  margin: 0;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f8f9fa;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+  outline: none;
+}
+
+input:focus {
+  border-color: #4f8cff;
+  background: #fff;
+}
+
+button {
+  width: 97%;
+  padding: 12px;
+  background: linear-gradient(90deg, #4f8cff 0%, #38c6d9 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(79, 140, 255, 0.10);
+  transition: background 0.2s, transform 0.1s;
+}
+
+button:hover {
+  background: linear-gradient(90deg, #357ae8 0%, #2bb3c0 100%);
+  transform: translateY(-2px) scale(1.01);
+}
+
+div[style*="color:red"] {
+  color: #e74c3c !important;
+  background: #fdecea;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.98rem;
+  margin-top: 0;
+  text-align: center;
+}
+
+div[style*="word-break:break-all"] {
+  background: #f3f8ff;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  color: #333;
+  margin-top: 0;
+  word-break: break-all;
+}
+
+div strong {
+  color: #4f8cff;
+  margin-bottom: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  display: block;
 }
 </style>
+|

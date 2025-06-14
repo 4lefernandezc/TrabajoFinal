@@ -1,20 +1,57 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watchEffect, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const pestañas = ref([
   { nombre: 'Inicio', ruta: '/', oculto: false },
   { nombre: 'Agenda', ruta: '/agenda', oculto: false },
-  { nombre: 'Horarios', ruta: '/agenda', oculto: true }, // Oculto por defecto
   { nombre: 'Pacientes', ruta: '/pacientes', oculto: false },
   { nombre: 'Doctores', ruta: '/doctores', oculto: false },
   { nombre: 'Especialidades', ruta: '/especialidades', oculto: false },
-  { nombre: 'Reservas', ruta: '/citas', oculto: true },
-  // { nombre: 'Notificaciones', ruta: '/notificaciones' }
+  { nombre: 'Reservas', ruta: '/citas', oculto: false },
 ])
 
-const rol = computed(() => localStorage.getItem('role') || 'user')
+const rol = computed(() => localStorage.getItem('role'))
+
+// Computed property para filtrar pestañas visibles
+const pestañasVisibles = computed(() => {
+  return pestañas.value.filter(pestaña => {
+    const rolActual = rol.value
+
+    switch (pestaña.nombre) {
+      case 'Especialidades':
+        // Solo admin puede ver Especialidades
+        return rolActual === 'admin'
+
+      case 'Agenda':
+        // Solo Medico puede ver Agenda
+        return rolActual === 'Medico'
+
+      case 'Reservas':
+        // Solo cliente puede ver Reservas
+        return rolActual === 'cliente'
+
+      case 'Doctores':
+        // Todos pueden ver Doctores por especialidad
+        return true
+
+      case 'Pacientes':
+        // Admin y Medico pueden ver Pacientes
+        return rolActual === 'admin' || rolActual === 'Medico'
+
+      case 'Inicio':
+        // Todos pueden ver Inicio
+        return true
+
+      default:
+        return true
+    }
+  })
+})
+
+console.log('Rol actual:', rol.value)
+console.log('Pestañas visibles:', pestañasVisibles.value)
 
 const pestañaActiva = ref('/')
 const cambiarPestaña = (ruta) => {
@@ -22,12 +59,10 @@ const cambiarPestaña = (ruta) => {
   router.push(ruta)
 }
 
-// Recibe el token como prop
 const props = defineProps({
   token: String
 })
 
-// Emite el evento logout al padre (App.vue)
 const emit = defineEmits(['logout'])
 function handleLogout() {
   emit('logout')
@@ -35,81 +70,133 @@ function handleLogout() {
 </script>
 
 <template>
-  <header>
+  <header v-if="token">
     <nav>
+      <!-- Enlaces de navegación alineados a la izquierda -->
       <ul>
-        <li v-for="pestaña in pestañas" :key="pestaña.ruta">
-          <a v-if="pestaña.oculto || rol === 'admin' || rol === 'Medico'"
-            href="#"
-            :class="{ 'active': pestañaActiva === pestaña.ruta }"
-            @click.prevent="cambiarPestaña(pestaña.ruta)"
-          >
+        <li v-for="pestaña in pestañasVisibles" :key="pestaña.ruta">
+          <a href="#" :class="{ 'active': pestañaActiva === pestaña.ruta }"
+            @click.prevent="cambiarPestaña(pestaña.ruta)">
             {{ pestaña.nombre }}
           </a>
         </li>
       </ul>
-      <!-- Botón de logout solo si hay token -->
-      <button v-if="token" @click="handleLogout" style="margin-left:2em">
-        Cerrar sesión
-      </button>
+
+      <!-- Botones de perfil y cerrar sesión alineados a la derecha -->
+      <div class="nav-right">
+        <a v-if="token" href="#" @click.prevent="cambiarPestaña('/perfil')" class="nav-link">
+          Ver perfil
+        </a>
+        <button v-if="token" @click="handleLogout">
+          Cerrar sesión
+        </button>
+      </div>
     </nav>
   </header>
 </template>
 
 <style scoped>
-
 header {
-  background-color: #333;
-  color: white;
-  padding: 1em;
-}
-nav ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-}
-nav li {
-  margin-right: 1em;
-}
-nav a {
-  color: white;
-  text-decoration: none;
-}
-nav a.active {
-  font-weight: bold;
-  text-decoration: underline;
-}
-nav button {
-  background-color: #f00;
-  color: white;
-  border: none;
-  padding: 0.5em 1em;
-  cursor: pointer;
-}
-nav button:hover {
-  background-color: #c00;
-}
-nav button:focus {
-  outline: none;
-}
-nav button:active {
-  background-color: #900;
-}
-nav button:disabled {
-  background-color: #666;
-  cursor: not-allowed;
-}
-nav button:disabled:hover {
-  background-color: #666;
-}
-nav button:disabled:focus {
-  outline: none;
+  background: linear-gradient(90deg, #4f8cff 0%, #235390 100%);
+  color: #fff;
+  padding: 1em 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
 }
 
 nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1em;
 }
 
+nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 1.5em;
+}
+
+nav li {
+  margin: 0;
+}
+
+nav a {
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 1.08em;
+  padding: 0.5em 1.1em;
+  border-radius: 6px;
+  transition: background 0.18s, color 0.18s;
+  display: inline-block;
+}
+
+nav a:hover,
+nav a.active {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffe082;
+  text-decoration: none;
+}
+
+/* Contenedor para los elementos del lado derecho */
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 1.5em;
+}
+
+/* Estilo específico para el enlace "Ver perfil" */
+.nav-right .nav-link {
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 1.08em;
+  padding: 0.5em 1.1em;
+  border-radius: 6px;
+  transition: background 0.18s, color 0.18s;
+  display: inline-block;
+}
+
+.nav-right .nav-link:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffe082;
+  text-decoration: none;
+}
+
+nav button {
+  background: linear-gradient(90deg, #ff5e62 0%, #ff9966 100%);
+  color: #fff;
+  border: none;
+  padding: 0.6em 1.5em;
+  border-radius: 6px;
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(255, 94, 98, 0.08);
+  transition: background 0.18s, box-shadow 0.18s;
+}
+
+nav button:hover {
+  background: linear-gradient(90deg, #ff9966 0%, #ff5e62 100%);
+  box-shadow: 0 4px 16px rgba(255, 94, 98, 0.16);
+}
+
+nav button:focus {
+  outline: 2px solid #ffe082;
+}
+
+nav button:active {
+  background: #ff5e62;
+}
+
+nav button:disabled {
+  background: #bbb;
+  cursor: not-allowed;
+  color: #eee;
+  box-shadow: none;
+}
 </style>

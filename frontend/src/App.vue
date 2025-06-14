@@ -21,16 +21,33 @@ function onLogin(newToken) {
   token.value = newToken
   router.push('/agenda')
 }
+
 function logout() {
   token.value = null
+  localStorage.removeItem('token')
+  localStorage.removeItem('role')
+  localStorage.removeItem('email')
   router.push('/login')
 }
 </script>
 
 <template>
-  <div>
+  <div class="app-container">
     <Header :token="token" @logout="logout" />
-    <router-view @login="onLogin" :token="token" :user />
+    <main class="main-content">
+      <router-view @login="onLogin" :token="token" :user />
+    </main>
     <Footer />
   </div>
 </template>
+
+<style>
+.app-container {
+  min-height: 98vh;
+  display: flex;
+  flex-direction: column;
+}
+.main-content {
+  flex: 1;
+}
+</style>

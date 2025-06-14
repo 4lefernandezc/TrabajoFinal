@@ -4,10 +4,6 @@ import { ref, onMounted } from 'vue'
 const especialidades = ref([])
 const loading = ref(false)
 const error = ref('')
-const nuevaEspecialidad = ref({
-  name: '',
-  description: ''
-})
 const token = localStorage.getItem('token')
 
 // Función para peticiones GraphQL
@@ -49,59 +45,42 @@ async function cargarEspecialidades() {
     }
   `
   const data = await gqlRequest(query)
+  console.log("Especialidades obtenidas", data)
   if (data) especialidades.value = data.specialties
-}
-
-// Crear especialidad
-async function crearEspecialidad() {
-  const mutation = `
-    mutation($input: SpecialtyInput!) {
-      createSpecialty(input: $input) {
-        id
-        name
-        description
-        isActive
-      }
-    }
-  `
-  const data = await gqlRequest(mutation, { input: nuevaEspecialidad.value })
-  if (data) {
-    especialidades.value.push(data.createSpecialty)
-    nuevaEspecialidad.value.name = ''
-    nuevaEspecialidad.value.description = ''
-  }
 }
 
 // Eliminar especialidad
 async function eliminarEspecialidad(id) {
-  if (!confirm('¿Eliminar esta especialidad?')) return
+  if (!confirm('¿Desactivar esta especialidad?')) return
   const mutation = `
-    mutation($id: ID!) {
-      deleteSpecialty(id: $id)
-    }
-  `
+        mutation($id: ID!) {
+            deactivateSpecialty(id: $id) {
+                id
+                name
+                isActive
+            }
+        }
+    `
   const data = await gqlRequest(mutation, { id })
-  if (data && data.deleteSpecialty) {
-    especialidades.value = especialidades.value.filter(e => e.id !== id)
+  if (data && data.deactivateSpecialty) {
+    // Opcional: recargar la lista o actualizar el estado localmente
+    await cargarEspecialidades()
   }
 }
+
+// Exponer función para recargar desde componente padre
+defineExpose({
+  cargarEspecialidades
+})
 
 onMounted(cargarEspecialidades)
 </script>
 
 <template>
   <div>
-    <h2>Gestión de Especialidades</h2>
+    <h3>Lista de Especialidades</h3>
     <div v-if="error" style="color:red">{{ error }}</div>
     <div v-if="loading">Cargando...</div>
-
-    <!-- Crear nueva especialidad -->
-    <form @submit.prevent="crearEspecialidad" style="margin-bottom:2em">
-      <h3>Nueva especialidad</h3>
-      <input v-model="nuevaEspecialidad.name" placeholder="Nombre" required />
-      <textarea v-model="nuevaEspecialidad.description" placeholder="Descripción" required />
-      <button type="submit">Crear</button>
-    </form>
 
     <!-- Listado de especialidades -->
     <table border="1" cellpadding="5">
@@ -128,115 +107,42 @@ onMounted(cargarEspecialidades)
 </template>
 
 <style scoped>
-
 table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 1em;
 }
-th, td {
+
+th,
+td {
   padding: 8px;
   text-align: left;
   border-bottom: 1px solid #ddd;
 }
+
 th {
   background-color: #f2f2f2;
 }
+
 td button {
   background-color: #f44336;
   color: white;
   border: none;
   padding: 5px 10px;
   cursor: pointer;
-}
-td button:hover {
-  background-color: #d32f2f;
-}
-td input {
-  width: 100%;
-  padding: 5px;
-  box-sizing: border-box;
-}
-td input[type="text"] {
-  width: auto;
-  margin-right: 10px;
-}
-td input[type="text"]:last-child {
-  margin-right: 0;
+  border-radius: 4px;
 }
 
-td input[type="text"]:focus {
-  outline: none;
-  border: 1px solid #007bff;
-}
-td input[type="text"]:disabled {
-  background-color: #f0f0f0;
-  cursor: not-allowed;
-}
-td input[type="text"]:disabled:hover {
-  background-color: #f0f0f0;
-}
-td input[type="text"]:disabled:focus {
-  outline: none;
+td button:hover {
+  background-color: #d32f2f;
 }
 
 td button:disabled {
   background-color: #ccc;
   cursor: not-allowed;
 }
+
 td button:disabled:hover {
   background-color: #ccc;
 }
-
-input, button {
-  font-size: 14px;
-  border-radius: 4px;
-}
-input {
-  border: 1px solid #ccc;
-  padding: 8px;
-  width: calc(100% - 16px);
-  box-sizing: border-box;
-}
-input:focus {
-  border-color: #007bff;
-  outline: none;
-}
-
-button {
-  background-color: #007bff;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  cursor: pointer;
-}
-
-button:hover {
-  background-color: #0056b3;
-}
-button:focus {
-  outline: none;
-}
-button:active {
-  background-color: #004494;
-}
-button:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-button:disabled:hover {
-  background-color: #ccc;
-}
-button:disabled:focus {
-  outline: none;
-}
-textarea {
-  width: 100%;
-  padding: 8px;
-  box-sizing: border-box;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-
 </style>
